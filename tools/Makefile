@@ -1,3 +1,8 @@
+TOP ?= $(shell git rev-parse --show-toplevel)
+export BP_TOOLS_DIR ?= $(TOP)/tools
+export BP_EXTERNAL_DIR  := $(TOP)/external
+export BASEJUMP_STL_DIR ?= $(BP_EXTERNAL_DIR)/basejump_stl
+
 .PHONY: bleach_all tools bsg_cadenv
 .DEFAULT: tools bsg_cadenv bleach_all
 
