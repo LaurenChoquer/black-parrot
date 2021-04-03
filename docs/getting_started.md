@@ -10,11 +10,23 @@ CentOS 7 requires a more modern gcc to build Linux. If you receive an error such
 
 ### Ubuntu
 
+For Ubuntu, we recommend updating existing pacakges before installing the prerequisites.
+
+    sudo apt update; sudo apt upgrade
+
+Then, install the prerequisites.
+
     sudo apt-get install autoconf automake autotools-dev cmake curl libmpc-dev libmpfr-dev libgmp-dev gawk build-essential bison flex texinfo gperf libtool patchutils bc zlib1g-dev libexpat-dev wget byacc device-tree-compiler python gtkwave vim-common virtualenv python-yaml
 
 BlackParrot has been tested extensively on CentOS 7. We have many users who have used Ubuntu for
 development. If not on a relatively recent version of these OSes, we suggest using a
 Docker image.
+
+If you are using a newer version of Ubuntu (e.g., 20.04 LTS), you will want to update setuptools
+in Python if you plan to install the sdk (which is installed by `make prep` below).
+
+    sudo apt-get install python3 python3-pip
+    pip3 install -U setuptools
 
 ## Build the toolchains
     # Clone the latest repo
