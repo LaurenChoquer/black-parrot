@@ -46,7 +46,7 @@ set_part $PART
 read_verilog -sv $flist
 read_xdc design.xdc
 
-synth_design -top wrapper -part $PART -include_dirs $dir_list -flatten_hierarchy rebuilt
+synth_design -top wrapper -part $PART -include_dirs $dir_list -flatten_hierarchy rebuilt -retiming
 report_utilization -file $REPORT_DIR/hier_util.rpt -hierarchical -hierarchical_percentages
 report_timing_summary -file $REPORT_DIR/timing.rpt
 # Rename submodules to avoid name conflicts with unsynth versions

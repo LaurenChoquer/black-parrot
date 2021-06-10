@@ -105,7 +105,13 @@ module bp_be_pipe_fma
   logic [dp_exp_width_gp+1:0] fma_out_sexp;
   logic [dp_sig_width_gp+2:0] fma_out_sig;
   logic [dword_width_gp-1:0] imul_out;
-  mulAddRecFNToRaw
+
+  logic invalid_exc_d, is_nan_d, is_inf_d, is_zero_d;
+  logic fma_out_sign_d;
+  logic [dp_exp_width_gp+1:0] fma_out_sexp_d;
+  logic [dp_sig_width_gp+2:0] fma_out_sig_d;
+  logic [dword_width_gp-1:0] imul_out_d;
+   mulAddRecFNToRaw
    #(.expWidth(dp_exp_width_gp)
      ,.sigWidth(dp_sig_width_gp)
      ,.imulEn(1)
@@ -128,6 +134,26 @@ module bp_be_pipe_fma
      ,.out_imul(imul_out)
      );
 
+   bsg_dff_chain
+    #(.width_p(5), .num_stages_p(1))
+    fma_manual_retiming1
+    (.clk_i(clk_i)
+
+    ,.data_i({invalid_exc, is_nan, is_inf, is_zero, fma_out_sign})
+    ,.data_o({invalid_exc_d, is_nan_d, is_inf_d, is_zero_d, fma_out_sign_d})
+    );
+
+   bsg_dff_chain
+    #(.width_p(5+dp_exp_width_gp+dp_sig_width_gp+dword_width_gp), .num_stages_p(1))
+    fma_manual_retiming2
+    (.clk_i(clk_i)
+
+    ,.data_i({fma_out_sexp, fma_out_sig, imul_out})
+    ,.data_o({fma_out_sexp_d, fma_out_sig_d, imul_out_d})
+    );
+
+
+
   logic [dp_rec_width_gp-1:0] fma_dp_final;
   rv64_fflags_s fma_dp_fflags;
   roundAnyRawFNToRecFN
@@ -138,14 +164,14 @@ module bp_be_pipe_fma
      )
    round_dp
     (.control(control_li)
-     ,.invalidExc(invalid_exc)
+     ,.invalidExc(invalid_exc_d)
      ,.infiniteExc('0)
-     ,.in_isNaN(is_nan)
-     ,.in_isInf(is_inf)
-     ,.in_isZero(is_zero)
-     ,.in_sign(fma_out_sign)
-     ,.in_sExp(fma_out_sexp)
-     ,.in_sig(fma_out_sig)
+     ,.in_isNaN(is_nan_d)
+     ,.in_isInf(is_inf_d)
+     ,.in_isZero(is_zero_d)
+     ,.in_sign(fma_out_sign_d)
+     ,.in_sExp(fma_out_sexp_d)
+     ,.in_sig(fma_out_sig_d)
      ,.roundingMode(frm_li)
      ,.out(fma_dp_final)
      ,.exceptionFlags(fma_dp_fflags)
@@ -161,14 +187,14 @@ module bp_be_pipe_fma
      )
    round_sp
     (.control(control_li)
-     ,.invalidExc(invalid_exc)
+     ,.invalidExc(invalid_exc_d)
      ,.infiniteExc('0)
-     ,.in_isNaN(is_nan)
-     ,.in_isInf(is_inf)
-     ,.in_isZero(is_zero)
-     ,.in_sign(fma_out_sign)
-     ,.in_sExp(fma_out_sexp)
-     ,.in_sig(fma_out_sig)
+     ,.in_isNaN(is_nan_d)
+     ,.in_isInf(is_inf_d)
+     ,.in_isZero(is_zero_d)
+     ,.in_sign(fma_out_sign_d)
+     ,.in_sExp(fma_out_sexp_d)
+     ,.in_sig(fma_out_sig_d)
      ,.roundingMode(frm_li)
      ,.out(fma_sp_final)
      ,.exceptionFlags(fma_sp_fflags)
@@ -189,8 +215,8 @@ module bp_be_pipe_fma
   assign fma_result = '{sp_not_dp: decode.ops_v, rec: decode.ops_v ? fma_sp2dp_final : fma_dp_final};
   assign fma_fflags = decode.ops_v ? fma_sp_fflags : fma_dp_fflags;
 
-  wire [dpath_width_gp-1:0] imulw_out = {{word_width_gp{imul_out[word_width_gp-1]}}, imul_out[0+:word_width_gp]};
-  wire [dpath_width_gp-1:0] imul_result = decode.opw_v ? imulw_out : imul_out;
+  wire [dpath_width_gp-1:0] imulw_out = {{word_width_gp{imul_out_d[word_width_gp-1]}}, imul_out_d[0+:word_width_gp]};
+  wire [dpath_width_gp-1:0] imul_result = decode.opw_v ? imulw_out : imul_out_d;
   wire imul_v_li = reservation.v & reservation.decode.pipe_mul_v;
   bsg_dff_chain
    #(.width_p(1+dpath_width_gp), .num_stages_p(imul_latency_p-1))
@@ -203,13 +229,22 @@ module bp_be_pipe_fma
 
   wire fma_v_li = reservation.v & reservation.decode.pipe_fma_v;
   bsg_dff_chain
-   #(.width_p(1+$bits(bp_be_fp_reg_s)+$bits(rv64_fflags_s)), .num_stages_p(fma_latency_p-1))
+   #(.width_p(1+$bits(rv64_fflags_s)), .num_stages_p(fma_latency_p-1))
    fma_retiming_chain
     (.clk_i(clk_i)
 
-     ,.data_i({fma_v_li, fma_fflags, fma_result})
-     ,.data_o({fma_v_o, fma_fflags_o, fma_data_o})
+     ,.data_i({fma_v_li, fma_fflags})
+     ,.data_o({fma_v_o, fma_fflags_o})
      );
+
+  bsg_dff_chain
+   #(.width_p($bits(bp_be_fp_reg_s)), .num_stages_p(fma_latency_p-2))
+   fma_retiming_chain_data
+    (.clk_i(clk_I)
+
+    ,.data_i(fma_result)
+    ,.data_o(fma_data_o)
+    );
 
 endmodule
 
