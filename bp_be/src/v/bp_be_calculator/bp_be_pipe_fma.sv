@@ -240,7 +240,7 @@ module bp_be_pipe_fma
   bsg_dff_chain
    #(.width_p($bits(bp_be_fp_reg_s)), .num_stages_p(fma_latency_p-2))
    fma_retiming_chain_data
-    (.clk_i(clk_I)
+    (.clk_i(clk_i)
 
     ,.data_i(fma_result)
     ,.data_o(fma_data_o)
